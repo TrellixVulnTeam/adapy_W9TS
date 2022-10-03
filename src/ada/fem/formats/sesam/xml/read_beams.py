@@ -54,7 +54,7 @@ def seg_to_beam(name: str, seg: ET.Element, parent: Part, prev_bm: Beam):
     n1 = parent.nodes.add(Node(pos_to_floats(pos["1"])))
     n2 = parent.nodes.add(Node(pos_to_floats(pos["2"])))
     try:
-        bm = Beam(name, n1, n2, sec=sec, mat=mat, parent=parent, metadata=metadata)
+        bm = Beam(name, n1, n2, section=sec, material=mat, parent=parent, metadata=metadata)
     except VectorNormalizeError:
         logging.warning(f"Beam '{name}' has coincident nodes. Will skip for now")
         return None

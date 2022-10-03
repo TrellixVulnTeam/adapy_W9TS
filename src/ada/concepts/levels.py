@@ -3,18 +3,32 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import StringIO
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Union
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.cache.store import CacheStore
 from ada.concepts.connections import JointBase
-from ada.concepts.containers import Beams, Connections, Materials, Nodes, Plates, Sections
+from ada.concepts.containers import (
+    Beams,
+    Connections,
+    Materials,
+    Nodes,
+    Plates,
+    Sections,
+)
 from ada.concepts.piping import Pipe
 from ada.concepts.points import Node
-from ada.concepts.primitives import Penetration, PrimBox, PrimCyl, PrimExtrude, PrimRevolve, Shape
+from ada.concepts.primitives import (
+    Penetration,
+    PrimBox,
+    PrimCyl,
+    PrimExtrude,
+    PrimRevolve,
+    Shape,
+)
 from ada.concepts.transforms import Instance, Placement
 from ada.config import Settings, User
 from ada.fem import (
@@ -37,7 +51,6 @@ if TYPE_CHECKING:
     from ada import Beam, Material, Plate, Section, Wall
     from ada.fem.meshing import GmshOptions
     from ada.fem.results import Results
-    from ada.ifc.concepts import IfcRef
     from ada.visualize.concept import VisMesh
     from ada.visualize.config import ExportConfig
 
@@ -55,52 +68,30 @@ class _ConvertOptions:
     fem2concepts_include_ecc = False
 
 
-class Part(BackendGeom):
+@dataclass
+class Part(Geometry):
     """A Part superclass design to host all relevant information for cad and FEM modelling."""
 
-    def __init__(
-        self,
-        name,
-        colour=None,
-        placement=Placement(),
-        fem: FEM = None,
-        settings: Settings = Settings(),
-        metadata=None,
-        parent=None,
-        units="m",
-        ifc_elem=None,
-        guid=None,
-        ifc_ref: IfcRef = None,
-    ):
-        super().__init__(
-            name, guid=guid, metadata=metadata, units=units, parent=parent, ifc_elem=ifc_elem, ifc_ref=ifc_ref
-        )
-        self._nodes = Nodes(parent=self)
-        self._beams = Beams(parent=self)
-        self._plates = Plates(parent=self)
-        self._pipes = list()
-        self._walls = list()
-        self._connections = Connections(parent=self)
-        self._materials = Materials(parent=self)
-        self._sections = Sections(parent=self)
-        self._colour = colour
-        self._placement = placement
-        self._instances: Dict[Any, Instance] = dict()
-        self._shapes = []
-        self._parts = dict()
-        self._groups: Dict[str, Group] = dict()
+    nodes: Nodes = field(default_factory=Nodes)
+    beams: Beams = field(default_factory=Beams)
+    plates: Plates = field(default_factory=Plates)
+    pipes: list[Pipe] = field(default_factory=list)
+    walls: list[Wall] = field(default_factory=list)
+    connections: Connections = field(default_factory=Connections)
+    materials: Materials = field(default_factory=Materials)
+    sections: Sections = field(default_factory=Sections)
+    instances: dict[Any, Instance] = field(default_factory=dict)
+    shapes: list[Shape] = field(default_factory=list)
+    parts: dict[str, Part] = field(default_factory=dict)
+    groups: dict[str, Group] = field(default_factory=dict)
+    fem: FEM = None
 
-        if ifc_elem is not None:
-            self.metadata["ifctype"] = self._import_part_from_ifc(ifc_elem)
-        else:
-            if self.metadata.get("ifctype") is None:
-                self.metadata["ifctype"] = "site" if type(self) is Assembly else "storey"
+    def __post_init__(self):
+        for obj in [self.nodes, self.beams, self.plates, self.connections, self.materials, self.sections]:
+            obj.parent = self
 
-        self._props = settings
-        if fem is not None:
-            fem.parent = self
-
-        self.fem = FEM(name + "-1", parent=self) if fem is None else fem
+        if self.fem is not None:
+            self.fem.parent = self
 
     def add_beam(self, beam: Beam) -> Beam:
         if beam.units != self.units:
@@ -145,7 +136,7 @@ class Part(BackendGeom):
             self.nodes.add(n)
 
         plate.change_type = plate.change_type.ADDED
-        self._plates.add(plate)
+        self.plates.add(plate)
         return plate
 
     def add_pipe(self, pipe: Pipe) -> Pipe:
@@ -158,14 +149,14 @@ class Part(BackendGeom):
             pipe.material = mat
 
         pipe.change_type = pipe.change_type.ADDED
-        self._pipes.append(pipe)
+        self.pipes.append(pipe)
         return pipe
 
     def add_wall(self, wall: Wall) -> Wall:
         if wall.units != self.units:
             wall.units = self.units
         wall.parent = self
-        self._walls.append(wall)
+        self.walls.append(wall)
         return wall
 
     def add_shape(self, shape: Shape) -> Shape:
@@ -179,7 +170,7 @@ class Part(BackendGeom):
             shape.material = mat
 
         shape.change_type = shape.change_type.ADDED
-        self._shapes.append(shape)
+        self.shapes.append(shape)
         return shape
 
     def add_part(self, part: Part, overwrite: bool = False) -> Part:
@@ -190,10 +181,10 @@ class Part(BackendGeom):
             part.units = self.units
         part.parent = self
 
-        if part.name in self._parts.keys() and overwrite is False:
+        if part.name in self.parts.keys() and overwrite is False:
             raise ValueError(f'Part name "{part.name}" already exists. Pass "overwrite=True" to replace existing part.')
 
-        self._parts[part.name] = part
+        self.parts[part.name] = part
         try:
             part._on_import()
         except NotImplementedError:
@@ -216,19 +207,19 @@ class Part(BackendGeom):
         """
         if joint.units != self.units:
             joint.units = self.units
-        self._connections.add(joint)
+        self.connections.add(joint)
         return joint
 
     def add_material(self, material: Material) -> Material:
         if material.units != self.units:
             material.units = self.units
         material.parent = self
-        return self._materials.add(material)
+        return self.materials.add(material)
 
     def add_section(self, section: Section) -> Section:
         if section.units != self.units:
             section.units = self.units
-        return self._sections.add(section)
+        return self.sections.add(section)
 
     def add_object(self, obj: Union[Part, Beam, Plate, Wall, Pipe, Shape]):
         from ada import Beam
@@ -270,9 +261,9 @@ class Part(BackendGeom):
         return pen
 
     def add_instance(self, element, placement: Placement):
-        if element not in self._instances.keys():
-            self._instances[element] = Instance(element)
-        self._instances[element].placements.append(placement)
+        if element not in self.instances.keys():
+            self.instances[element] = Instance(element)
+        self.instances[element].placements.append(placement)
 
     def add_set(self, name, set_members: List[Union[Part, Beam, Plate, Wall, Pipe, Shape]]) -> Group:
         if name not in self.groups.keys():
@@ -453,8 +444,8 @@ class Part(BackendGeom):
 
     def move_all_mats_and_sec_here_from_subparts(self):
         for p in self.get_all_subparts():
-            self._materials += p.materials
-            self._sections += p.sections
+            self.materials += p.materials
+            self.sections += p.sections
             p._materials = Materials(parent=p)
             p._sections = Sections(parent=p)
 
@@ -623,128 +614,22 @@ class Part(BackendGeom):
         return amesh
 
     @property
-    def parts(self) -> dict[str, Part]:
-        return self._parts
-
-    @property
-    def shapes(self) -> List[Shape]:
-        return self._shapes
-
-    @shapes.setter
-    def shapes(self, value: List[Shape]):
-        self._shapes = value
-
-    @property
-    def beams(self) -> Beams:
-        return self._beams
-
-    @beams.setter
-    def beams(self, value: Beams):
-        self._beams = value
-
-    @property
-    def plates(self) -> Plates:
-        return self._plates
-
-    @plates.setter
-    def plates(self, value: Plates):
-        self._plates = value
-
-    @property
-    def pipes(self) -> List[Pipe]:
-        return self._pipes
-
-    @pipes.setter
-    def pipes(self, value: List[Pipe]):
-        self._pipes = value
-
-    @property
-    def walls(self) -> List[Wall]:
-        return self._walls
-
-    @walls.setter
-    def walls(self, value: List[Wall]):
-        self._walls = value
-
-    @property
-    def nodes(self) -> Nodes:
-        return self._nodes
-
-    @property
-    def fem(self) -> FEM:
-        return self._fem
-
-    @fem.setter
-    def fem(self, value: FEM):
-        value.parent = self
-        self._fem = value
-
-    @property
-    def connections(self) -> Connections:
-        return self._connections
-
-    @property
-    def sections(self) -> Sections:
-        return self._sections
-
-    @sections.setter
-    def sections(self, value: Sections):
-        self._sections = value
-
-    @property
-    def materials(self) -> Materials:
-        return self._materials
-
-    @materials.setter
-    def materials(self, value: Materials):
-        self._materials = value
-
-    @property
-    def colour(self):
-        if self._colour is None:
-            from random import randint
-
-            self._colour = randint(0, 255) / 255, randint(0, 255) / 255, randint(0, 255) / 255
-
-        return self._colour
-
-    @colour.setter
-    def colour(self, value):
-        self._colour = value
-
-    @property
-    def properties(self):
-        return self._props
-
-    @property
-    def placement(self) -> Placement:
-        return self._placement
-
-    @placement.setter
-    def placement(self, value: Placement):
-        self._placement = value
-
-    @property
-    def instances(self) -> Dict[Any, Instance]:
-        return self._instances
-
-    @property
     def units(self):
         return self._units
 
     @units.setter
     def units(self, value):
-        if value != self._units:
+        if value != self.units:
             for bm in self.beams:
                 bm.units = value
 
             for pl in self.plates:
                 pl.units = value
 
-            for pipe in self._pipes:
+            for pipe in self.pipes:
                 pipe.units = value
 
-            for shp in self._shapes:
+            for shp in self.shapes:
                 shp.units = value
 
             for wall in self.walls:
@@ -765,10 +650,6 @@ class Part(BackendGeom):
                 from ada.ifc.utils import assembly_to_ifc_file
 
                 self._ifc_file = assembly_to_ifc_file(self)
-
-    @property
-    def groups(self) -> Dict[str, Group]:
-        return self._groups
 
     def __truediv__(self, other_object):
         from ada import Beam, Part, Pipe, Plate, Shape, Wall
@@ -974,7 +855,12 @@ class Assembly(Part):
 
         """
         from ada.fem.formats.general import fem_executables, get_fem_converters
-        from ada.fem.formats.utils import default_fem_inp_path, default_fem_res_path, folder_prep, should_convert
+        from ada.fem.formats.utils import (
+            default_fem_inp_path,
+            default_fem_res_path,
+            folder_prep,
+            should_convert,
+        )
         from ada.fem.results import Results
 
         scratch_dir = Settings.scratch_dir if scratch_dir is None else pathlib.Path(scratch_dir)

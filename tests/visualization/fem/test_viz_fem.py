@@ -7,7 +7,7 @@ from ada.visualize.femviz import get_edges_from_fem, get_faces_from_fem
 
 @pytest.fixture
 def pfem():
-    a = Assembly() / (Part("BeamFEM") / Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], sec="IPE220", colour="red"))
+    a = Assembly() / (Part("BeamFEM") / Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], section="IPE220", colour="red"))
     part = a.get_part("BeamFEM")
     with GmshSession(silent=True) as gs:
         gs.add_obj(a.get_by_name("bm1"), geom_repr="line")

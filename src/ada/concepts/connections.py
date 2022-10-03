@@ -4,7 +4,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.concepts.containers import Beams, Connections
 
 if TYPE_CHECKING:
@@ -47,7 +47,7 @@ class JointReqChecker:
         return res
 
 
-class JointBase(BackendGeom, ABC):
+class JointBase(Geometry, ABC):
     beamtypes: list
     mem_types: list
     num_mem: int
@@ -110,7 +110,7 @@ class JointBase(BackendGeom, ABC):
         return f'{self.__class__.__name__}("{self.name}", members:{len(self.beams)})'
 
 
-class Bolts(BackendGeom):
+class Bolts(Geometry):
     """
 
     TODO: Create a bolt class based on the IfcMechanicalFastener concept.
@@ -127,7 +127,7 @@ class Bolts(BackendGeom):
         super(Bolts, self).__init__(name, parent=parent)
 
 
-class Weld(BackendGeom):
+class Weld(Geometry):
     """
     TODO: Create a weld class based on the IfcFastener concept.
 

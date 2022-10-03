@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List
 
 import numpy as np
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.concepts.bounding_box import BoundingBox
 from ada.concepts.curves import CurvePoly
 from ada.concepts.points import Node
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ada.ifc.concepts import IfcRef
 
 
-class Plate(BackendGeom):
+class Plate(Geometry):
     """
     A plate object. The plate element covers all plate elements. Contains a dictionary with each point of the plate
     described by an id (index) and a Node object.

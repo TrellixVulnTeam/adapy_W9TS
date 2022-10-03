@@ -188,9 +188,9 @@ def generate_tpl_ifc_file(file_name, project, schema, units, user):
     :type user: ada.config.User
     :return:
     """
-    from ada.base.non_physical_objects import Units
-
     import time
+
+    from ada.base.root import Units
 
     from .ifc_template import tpl_create
 

@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Tuple, Union
 
-from ada.base.non_physical_objects import Backend
+from ada.base.root import Root
 from ada.concepts.curves import CurvePoly
 from ada.config import Settings
 from ada.sections.categories import BaseTypes, SectionCat
@@ -14,70 +14,39 @@ if TYPE_CHECKING:
     from ada.fem import FemSection
 
 
-class Section(Backend):
+@dataclass
+class Section(Root):
+    type: str = None
+    id: int = None
+    h: float = None
+    w_top: float = None
+    w_btn: float = None
+    t_w: float = None
+    t_ftop: float = None
+    t_fbtn: float = None
+    r: float = None
+    wt: float = None
+    sec_id: float = None
+    sec_str: str = None
+    from_str: str = None
+    outer_poly = None
+    inner_poly = None
+    genprops: GeneralProperties = None
+    refs = None
+
     TYPES = BaseTypes
 
-    def __init__(
-        self,
-        name,
-        sec_type=None,
-        h=None,
-        w_top=None,
-        w_btn=None,
-        t_w=None,
-        t_ftop=None,
-        t_fbtn=None,
-        r=None,
-        wt=None,
-        sec_id=None,
-        parent=None,
-        sec_str=None,
-        from_str=None,
-        outer_poly=None,
-        inner_poly=None,
-        genprops: GeneralProperties = None,
-        metadata=None,
-        units="m",
-        guid=None,
-        refs=None,
-    ):
-        super(Section, self).__init__(name, guid, metadata, units, parent=parent)
-        self._type = sec_type
-        self._h = h
-        self._w_top = w_top
-        self._w_btn = w_btn
-        self._t_w = t_w
-        self._t_ftop = t_ftop
-        self._t_fbtn = t_fbtn
-        self._r = r
-        self._wt = wt
-        self._id = sec_id
-        self._outer_poly = outer_poly
-        self._inner_poly = inner_poly
-        self._sec_str = sec_str
-
+    def __post_init__(self):
         self._ifc_profile = None
         self._ifc_beam_type = None
 
-        if from_str is not None:
+        if self.from_str is not None:
             from ada.sections.utils import interpret_section_str
 
-            if units == "m":
-                scalef = 0.001
-            elif units == "mm":
-                scalef = 1.0
-            else:
-                raise ValueError(f'Unknown units "{units}"')
-            sec, tap = interpret_section_str(from_str, scalef, units=units)
+            sec, tap = interpret_section_str(self.from_str, units=self.units)
             self.__dict__.update(sec.__dict__)
-        elif outer_poly:
+        elif self.outer_poly:
             self._type = "poly"
-
-        self._genprops = None
-        self._refs = refs if refs is not None else []
-        if genprops is not None:
-            genprops.parent = self
-            self._genprops = genprops
 
     def equal_props(self, other: Section):
         props = ["type", "h", "w_top", "w_btn", "t_w", "t_ftop", "t_fbtn", "r", "wt", "poly_outer", "poly_inner"]
@@ -93,20 +62,6 @@ class Section(Backend):
     def unique_props(self):
         props = ["type", "h", "w_top", "w_btn", "t_w", "t_ftop", "t_fbtn", "r", "wt", "poly_outer", "poly_inner"]
         return tuple([getattr(self, p) for p in props])
-
-    @property
-    def type(self):
-        return self._type
-
-    @property
-    def id(self):
-        return self._id
-
-    @id.setter
-    def id(self, value):
-        if type(value) is not int:
-            raise ValueError
-        self._id = value
 
     @property
     def h(self):
@@ -190,6 +145,7 @@ class Section(Backend):
             sec_str = "PolyCurve"
         else:
             raise ValueError(f'Section type "{self.type}" has not been given a section str')
+
         return sec_str.replace(".", "_") if sec_str is not None else None
 
     @property
@@ -201,35 +157,33 @@ class Section(Backend):
 
         return self._genprops
 
-    @property
-    def units(self):
-        return self._units
+    def set_units(self, value):
+        if self.units == value:
+            return
 
-    @units.setter
-    def units(self, value):
-        if self._units != value:
-            from ada.core.utils import unit_length_conversion
+        from ada.core.utils import unit_length_conversion
 
-            scale_factor = unit_length_conversion(self._units, value)
+        scale_factor = unit_length_conversion(self.units, value)
 
-            if self.poly_inner is not None:
-                self.poly_inner.scale(scale_factor, Settings.point_tol)
+        if self.poly_inner is not None:
+            self.poly_inner.scale(scale_factor, Settings.point_tol)
 
-            if self.poly_outer is not None:
-                self.poly_outer.scale(scale_factor, Settings.point_tol)
+        if self.poly_outer is not None:
+            self.poly_outer.scale(scale_factor, Settings.point_tol)
 
-            vals = ["h", "w_top", "w_btn", "t_w", "t_ftop", "t_fbtn", "r", "wt"]
+        vals = ["h", "w_top", "w_btn", "t_w", "t_ftop", "t_fbtn", "r", "wt"]
 
-            for key in self.__dict__.keys():
-                if self.__dict__[key] is not None:
-                    if key[1:] in vals:
-                        self.__dict__[key] *= scale_factor
-            self._units = value
+        for key in self.__dict__.keys():
+            if self.__dict__[key] is not None:
+                if key[1:] in vals:
+                    self.__dict__[key] *= scale_factor
+        self.units = value
 
     @property
     def ifc_profile(self):
         if self._ifc_profile is None:
             from ada.ifc.write.write_sections import export_beam_section_profile_def
+
             self._ifc_profile = export_beam_section_profile_def(self)
         return self._ifc_profile
 
@@ -237,6 +191,7 @@ class Section(Backend):
     def ifc_beam_type(self):
         if self._ifc_beam_type is None:
             from ada.ifc.write.write_sections import export_ifc_beam_type
+
             self._ifc_beam_type = export_ifc_beam_type(self)
 
         return self._ifc_beam_type

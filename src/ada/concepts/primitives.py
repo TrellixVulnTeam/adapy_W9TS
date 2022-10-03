@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.core.utils import Counter, roundoff
 from ada.materials import Material
 from ada.materials.utils import get_material
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ada.ifc.concepts import IfcRef
 
 
-class Shape(BackendGeom):
+class Shape(Geometry):
     def __init__(
         self,
         name,
@@ -435,7 +435,7 @@ class PrimSweep(Shape):
         return f"PrimSweep({self.name})"
 
 
-class Penetration(BackendGeom):
+class Penetration(Geometry):
     _name_gen = Counter(1, "Pen")
     """A penetration object. Wraps around a primitive"""
     # TODO: Maybe this class should be evaluated for removal?

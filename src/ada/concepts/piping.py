@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.config import Settings as _Settings
 from ada.core.utils import Counter, roundoff
 from ada.core.vector_utils import angle_between, calc_zvec, unit_vector, vector_length
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ada import Section
 
 
-class Pipe(BackendGeom):
+class Pipe(Geometry):
     def __init__(
         self,
         name,
@@ -226,7 +226,7 @@ class Pipe(BackendGeom):
         return Pipe(name, points, seg0_section, seg0_material)
 
 
-class PipeSegStraight(BackendGeom):
+class PipeSegStraight(Geometry):
     def __init__(
         self,
         name,
@@ -287,7 +287,7 @@ class PipeSegStraight(BackendGeom):
         return f"PipeSegStraight({self.name}, p1={self.p1}, p2={self.p2})"
 
 
-class PipeSegElbow(BackendGeom):
+class PipeSegElbow(Geometry):
     def __init__(
         self,
         name,

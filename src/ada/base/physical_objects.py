@@ -2,63 +2,36 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import TYPE_CHECKING, List
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from ada.concepts.transforms import Placement
 from ada.core.constants import color_map as _cmap
 
-from .non_physical_objects import Backend
+from .root import Root
 
 if TYPE_CHECKING:
     from ada import FEM, Penetration
     from ada.fem import Elem
     from ada.fem.meshing import GmshOptions
-    from ada.ifc.concepts import IfcRef
+    from ada.visualize.renderer_pythreejs import MyRenderer
 
 
-class BackendGeom(Backend):
+@dataclass
+class Geometry(Root):
     """The backend of all physical components (Beam, Plate, etc.) or aggregate of components (Part, Assembly)"""
 
-    _renderer = None
+    placement: Placement = Placement()
+    colour_str: str = None
+    colour: tuple = None
+    opacity: float = 1.0
+    penetrations: list[Penetration] = field(default_factory=list)
+    elem_refs: list[Elem] = field(default_factory=list)
 
-    def __init__(
-        self,
-        name,
-        guid=None,
-        metadata=None,
-        units="m",
-        parent=None,
-        colour=None,
-        ifc_elem=None,
-        placement=Placement(),
-        ifc_ref: IfcRef = None,
-        opacity=1.0,
-    ):
-        super().__init__(name, guid, metadata, units, parent, ifc_elem=ifc_elem, ifc_ref=ifc_ref)
-        from ada.visualize.new_render_api import Visualize
+    _renderer: MyRenderer = None
 
-        self._penetrations = []
-        self._placement = placement
-        placement.parent = self
-        self.colour = colour
-        self.opacity = opacity
-        self._elem_refs = []
-        self._viz = Visualize(self)
-
-    def add_penetration(self, pen):
-        from ada import Penetration, Shape
-
-        pen.parent = self
-
-        if issubclass(type(pen), Shape) is True:
-            pen = Penetration(pen, parent=self)
-            self._penetrations.append(pen)
-        elif type(pen) is Penetration:
-            self._penetrations.append(pen)
-        else:
-            raise ValueError("")
-
-        return pen
+    def __post_init__(self):
+        self.placement.parent = self
 
     def to_fem_obj(
         self,
@@ -158,22 +131,13 @@ class BackendGeom(Backend):
         return embed_snippet(renderer.renderer)
 
     @property
-    def colour(self):
-        return self._colour
-
-    @colour.setter
-    def colour(self, value):
-        if type(value) is str:
-            if value.lower() not in _cmap.keys():
-                raise ValueError("Currently unsupported")
-            self._colour = _cmap[value.lower()]
-        else:
-            self._colour = value
-
-    @property
     def colour_norm(self):
-        if self._colour is None:
-            self.colour = "white"
+        if self.colour is None:
+            if self.colour_str is None:
+                self.colour_str = "white"
+
+            self.colour = _cmap[self.colour_str.lower()]
+
         return [x / 255 for x in self.colour] if any(i > 1 for i in self.colour) else self.colour
 
     @property
@@ -194,39 +158,8 @@ class BackendGeom(Backend):
         return colour_formatted
 
     @property
-    def opacity(self):
-        return self._opacity
-
-    @opacity.setter
-    def opacity(self, value):
-        if (0.0 <= value <= 1.0) is False:
-            raise ValueError(f'Opacity is only valid between 1 and 0. "{value}" was passed in')
-
-        self._opacity = value
-
-    @property
     def transparent(self):
         return False if self.opacity == 1.0 else True
-
-    @property
-    def penetrations(self) -> List[Penetration]:
-        return self._penetrations
-
-    @property
-    def elem_refs(self) -> List[Elem]:
-        return self._elem_refs
-
-    @elem_refs.setter
-    def elem_refs(self, value):
-        self._elem_refs = value
-
-    @property
-    def placement(self) -> Placement:
-        return self._placement
-
-    @placement.setter
-    def placement(self, value: Placement):
-        self._placement = value
 
     def _repr_html_(self):
         from ada.config import Settings

@@ -3,11 +3,11 @@ from ada import Assembly, Beam, Plate
 
 def test_viz_structural():
     components = [
-        Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], sec="IPE220", colour="red"),
-        Beam("bm2", n1=[0, 0, 1], n2=[2, 0, 1], sec="HP220x10", colour="blue"),
-        Beam("bm3", n1=[0, 0, 2], n2=[2, 0, 2], sec="BG800x400x20x40", colour="green"),
-        Beam("bm4", n1=[0, 0, 3], n2=[2, 0, 3], sec="CIRC200", colour="green"),
-        Beam("bm5", n1=[0, 0, 4], n2=[2, 0, 4], sec="TUB200x10", colour="green"),
+        Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], section="IPE220", colour="red"),
+        Beam("bm2", n1=[0, 0, 1], n2=[2, 0, 1], section="HP220x10", colour="blue"),
+        Beam("bm3", n1=[0, 0, 2], n2=[2, 0, 2], section="BG800x400x20x40", colour="green"),
+        Beam("bm4", n1=[0, 0, 3], n2=[2, 0, 3], section="CIRC200", colour="green"),
+        Beam("bm5", n1=[0, 0, 4], n2=[2, 0, 4], section="TUB200x10", colour="green"),
         Plate(
             "pl1",
             [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)],
@@ -28,11 +28,11 @@ def test_viz_structural():
 
 def test_viz_to_binary_json(test_dir):
     components = [
-        Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], sec="IPE220", colour="red"),
-        Beam("bm2", n1=[0, 0, 1], n2=[2, 0, 1], sec="HP220x10", colour="blue"),
-        Beam("bm3", n1=[0, 0, 2], n2=[2, 0, 2], sec="BG800x400x20x40", colour="green"),
-        Beam("bm4", n1=[0, 0, 3], n2=[2, 0, 3], sec="CIRC200", colour="green"),
-        Beam("bm5", n1=[0, 0, 4], n2=[2, 0, 4], sec="TUB200x10", colour="green"),
+        Beam("bm1", n1=[0, 0, 0], n2=[2, 0, 0], section="IPE220", colour="red"),
+        Beam("bm2", n1=[0, 0, 1], n2=[2, 0, 1], section="HP220x10", colour="blue"),
+        Beam("bm3", n1=[0, 0, 2], n2=[2, 0, 2], section="BG800x400x20x40", colour="green"),
+        Beam("bm4", n1=[0, 0, 3], n2=[2, 0, 3], section="CIRC200", colour="green"),
+        Beam("bm5", n1=[0, 0, 4], n2=[2, 0, 4], section="TUB200x10", colour="green"),
         Plate(
             "pl1",
             [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)],

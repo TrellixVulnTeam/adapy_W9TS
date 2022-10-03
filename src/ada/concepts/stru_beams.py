@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import TYPE_CHECKING, ClassVar, Iterable, Optional, Union
 
 import numpy as np
-from enum import Enum
 
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.concepts.bounding_box import BoundingBox
 from ada.concepts.curves import CurvePoly, CurveRevolve
 from ada.concepts.points import Node, get_singular_node_by_volume
-from ada.concepts.transforms import Placement
 from ada.config import Settings
 from ada.core.utils import Counter, roundoff
 from ada.core.vector_utils import (
@@ -31,9 +31,8 @@ if TYPE_CHECKING:
     from OCC.Core.TopoDS import TopoDS_Shape
 
     from ada.concepts.connections import JointBase
-    from ada.concepts.levels import Part
+    from ada.concepts.levels import Assembly, Part
     from ada.fem.elements import HingeProp
-    from ada.ifc.concepts import IfcRef
 
 section_counter = Counter(1)
 material_counter = Counter(1)
@@ -44,100 +43,68 @@ class Justification(Enum):
     TOS = "top of steel"
 
 
-class Beam(BackendGeom):
-    """
-    The base Beam object
+@dataclass
+class Beam:
+    """The base Beam object"""
 
-    :param n1: Start position of beam. List or Node object
-    :param n2: End position of beam. List or Node object
-    :param sec: Section definition. Str or Section Object
-    :param mat: Material. Str or Material object. String: ['S355' & 'S420'] (default is 'S355' if None is parsed)
-    :param name: Name of beam
-    :param tap: Tapering of beam. Str or Section object
-    :param jusl: Justification of Beam centreline
-    :param curve: Curve
-    """
+    JUSL_TYPES: ClassVar[Justification] = Justification
+    name: str
+    n1: Node | Iterable = None
+    n2: Node | Iterable = None
+    section: str | Section = None
+    material: str | Material = None
+    tapered_section: str | Section = None
+    jusl: JUSL_TYPES = JUSL_TYPES.NA
+    up: Iterable = None
+    angle: float = 0.0
+    curve: Union[CurvePoly, CurveRevolve] = None
+    e1: Iterable = None
+    e2: Iterable = None
+    connected_to: list[JointBase] = field(default_factory=list)
+    connected_end1 = None
+    connected_end2 = None
+    parent: Part | Assembly = None
+    geom: Geometry = None
+    _bbox: BoundingBox = None
 
-    JUSL_TYPES = Justification
-
-    def __init__(
-        self,
-        name,
-        n1: Union[Node, Iterable] = None,
-        n2: Union[Node, Iterable] = None,
-        sec: Union[str, Section] = None,
-        mat: Union[str, Material] = None,
-        tap: Union[str, Section] = None,
-        jusl=JUSL_TYPES.NA,
-        up=None,
-        angle=0.0,
-        curve: Union[CurvePoly, CurveRevolve] = None,
-        e1=None,
-        e2=None,
-        colour=None,
-        parent: Part = None,
-        metadata=None,
-        opacity=1.0,
-        units="m",
-        ifc_elem=None,
-        guid=None,
-        placement=Placement(),
-        ifc_ref: IfcRef = None,
-    ):
-        super().__init__(
-            name,
-            metadata=metadata,
-            units=units,
-            guid=guid,
-            ifc_elem=ifc_elem,
-            placement=placement,
-            ifc_ref=ifc_ref,
-            colour=colour,
-            opacity=opacity,
-        )
-        if curve is not None:
-            curve.parent = self
-            if type(curve) is CurvePoly:
-                n1 = curve.points3d[0]
-                n2 = curve.points3d[-1]
-            elif type(curve) is CurveRevolve:
-                n1 = curve.p1
-                n2 = curve.p2
+    def __post_init__(self):
+        if self.curve is not None:
+            self.curve.parent = self
+            if type(self.curve) is CurvePoly:
+                self.n1 = self.curve.points3d[0]
+                self.n2 = self.curve.points3d[-1]
+            elif type(self.curve) is CurveRevolve:
+                self.n1 = Node(self.curve.p1)
+                self.n2 = Node(self.curve.p2)
             else:
-                raise ValueError(f'Unsupported curve type "{type(curve)}"')
+                raise ValueError(f'Unsupported curve type "{type(self.curve)}"')
 
-        self._curve = curve
-        self._n1 = n1 if type(n1) is Node else Node(n1[:3], units=units)
-        self._n2 = n2 if type(n2) is Node else Node(n2[:3], units=units)
-        self._jusl = jusl
+        if isinstance(self.n1, Node) is False:
+            self.n1 = Node(self.n1[:3], units=self.units)
+        if isinstance(self.n2, Node) is False:
+            self.n2 = Node(self.n2[:3], units=self.units)
 
-        self._connected_to = []
-        self._connected_end1 = None
-        self._connected_end2 = None
-        self._tos = None
-        self._e1 = e1
-        self._e2 = e2
         self._hinge_prop = None
 
-        self._parent = parent
-        self._bbox = None
-
         # Section and Material setup
-        self._section, self._taper = get_section(sec)
+        self._section, self._taper = get_section(self.section)
         self._section.refs.append(self)
         self._taper.refs.append(self)
-        self._material = get_material(mat)
+        self._material = get_material(self.material)
         self._material.refs.append(self)
 
-        if tap is not None:
-            self._taper, _ = get_section(tap)
+        if self.tapered_section is not None:
+            self._taper, _ = get_section(self.tapered_section)
 
         self._section.parent = self
         self._taper.parent = self
 
         # Define orientations
-        self._init_orientation(angle, up)
+        self._init_orientation(self.angle, self.up)
         self.add_beam_to_node_refs()
+        self.geom = Geometry(
+            self.name,
+        )
 
     def _init_orientation(self, angle=None, up=None) -> None:
         xvec = unit_vector(self.n2.p - self.n1.p)
@@ -230,9 +197,9 @@ class Beam(BackendGeom):
             name=f"{self.name}_2",
             n1=node,
             n2=self.n2,
-            sec=self.section if section is None else section,
-            mat=self.material if material is None else material,
-            tap=self.taper,
+            section=self.section if section is None else section,
+            material=self.material if material is None else material,
+            tapered_section=self.taper,
             jusl=self.jusl,
             up=self.up,
             e1=self.e1,
@@ -324,12 +291,12 @@ class Beam(BackendGeom):
                     continue
 
             if vlena < point_tol:
-                self._connected_end1 = self.connected_to[points.index(tuple(p))]
+                self.connected_end1 = self.connected_to[points.index(tuple(p))]
                 prev_p = p
                 continue
 
             if vlenb < point_tol:
-                self._connected_end2 = self.connected_to[points.index(tuple(p))]
+                self.connected_end2 = self.connected_to[points.index(tuple(p))]
                 prev_p = p
                 continue
 
@@ -342,27 +309,19 @@ class Beam(BackendGeom):
 
         return midpoints
 
-    @property
-    def units(self):
-        return self._units
+    def set_units(self, value):
+        if self.units == value:
+            return
 
-    @units.setter
-    def units(self, value):
-        if self._units != value:
-            self.n1.units = value
-            self.n2.units = value
-            self.section.units = value
-            self.material.units = value
-            for pen in self.penetrations:
-                pen.units = value
-            self._units = value
+        self.n1.units = value
+        self.n2.units = value
+        self.section.units = value
+        self.material.units = value
+        for pen in self.penetrations:
+            pen.units = value
+        self.units = value
 
-    @property
-    def section(self) -> Section:
-        return self._section
-
-    @section.setter
-    def section(self, value: Section):
+    def set_section(self, value: Section):
         section = self.parent.add_section(value)
 
         if self.taper == self.section:
@@ -371,28 +330,15 @@ class Beam(BackendGeom):
         if self in self.section.refs:
             self.section.refs.remove(self)
 
-        self._section = section
-        self._section.refs.append(self)
+        self.section = section
+        self.section.refs.append(self)
 
-    @property
-    def taper(self) -> Section:
-        return self._taper
-
-    @taper.setter
-    def taper(self, value: Section):
+    def set_taper(self, value: Section):
         if self in self.taper.refs:
             self.taper.refs.remove(self)
 
-        self._taper = value
-        self._taper.refs.append(self)
-
-    @property
-    def material(self) -> Material:
-        return self._material
-
-    @material.setter
-    def material(self, value: Material):
-        self._material = value
+        self.taper = value
+        self.taper.refs.append(self)
 
     @property
     def member_type(self):
@@ -409,18 +355,6 @@ class Beam(BackendGeom):
         return mtype
 
     @property
-    def connected_to(self) -> List[JointBase]:
-        return self._connected_to
-
-    @property
-    def connected_end1(self):
-        return self._connected_end1
-
-    @property
-    def connected_end2(self):
-        return self._connected_end2
-
-    @property
     def length(self) -> float:
         """Returns the length of the beam"""
         p1 = self.n1.p
@@ -431,11 +365,6 @@ class Beam(BackendGeom):
         if self.e2 is not None:
             p2 += self.e2
         return vector_length(p2 - p1)
-
-    @property
-    def jusl(self):
-        """Justification line"""
-        return self._jusl
 
     @property
     def ori(self):
@@ -454,10 +383,6 @@ class Beam(BackendGeom):
         return self._yvec
 
     @property
-    def up(self) -> np.ndarray:
-        return self._up
-
-    @property
     def xvec_e(self) -> np.ndarray:
         """Local X-vector (including eccentricities)"""
         if self.e1 is not None:
@@ -470,25 +395,15 @@ class Beam(BackendGeom):
             p2 = self.n2.p
         return unit_vector(p2 - p1)
 
-    @property
-    def n1(self) -> Node:
-        return self._n1
+    def set_n1(self, new_node: Node):
+        self.n1.remove_obj_from_refs(self)
+        self.n1 = new_node.get_main_node_at_point()
+        self.n1.add_obj_to_refs(self)
 
-    @n1.setter
-    def n1(self, new_node: Node):
-        self._n1.remove_obj_from_refs(self)
-        self._n1 = new_node.get_main_node_at_point()
-        self._n1.add_obj_to_refs(self)
-
-    @property
-    def n2(self) -> Node:
-        return self._n2
-
-    @n2.setter
-    def n2(self, new_node: Node):
-        self._n2.remove_obj_from_refs(self)
-        self._n2 = new_node.get_main_node_at_point()
-        self._n2.add_obj_to_refs(self)
+    def set_n2(self, new_node: Node):
+        self.n2.remove_obj_from_refs(self)
+        self.n2 = new_node.get_main_node_at_point()
+        self.n2.add_obj_to_refs(self)
 
     @property
     def bbox(self) -> BoundingBox:
@@ -497,22 +412,6 @@ class Beam(BackendGeom):
             self._bbox = BoundingBox(self)
 
         return self._bbox
-
-    @property
-    def e1(self) -> np.ndarray:
-        return self._e1
-
-    @e1.setter
-    def e1(self, value):
-        self._e1 = np.array(value)
-
-    @property
-    def e2(self) -> np.ndarray:
-        return self._e2
-
-    @e2.setter
-    def e2(self, value):
-        self._e2 = np.array(value)
 
     @property
     def hinge_prop(self) -> HingeProp:
@@ -526,10 +425,6 @@ class Beam(BackendGeom):
         if value.end2 is not None:
             value.end2.concept_node = self.n2
         self._hinge_prop = value
-
-    @property
-    def curve(self) -> CurvePoly:
-        return self._curve
 
     @property
     def line(self):
@@ -548,7 +443,7 @@ class Beam(BackendGeom):
     def shell(self) -> TopoDS_Shape:
         from ada.occ.utils import apply_penetrations, create_beam_geom
 
-        geom = apply_penetrations(create_beam_geom(self, False), self.penetrations)
+        geom = apply_penetrations(create_beam_geom(self, False), self.geom.penetrations)
 
         return geom
 
@@ -556,7 +451,7 @@ class Beam(BackendGeom):
     def solid(self) -> TopoDS_Shape:
         from ada.occ.utils import apply_penetrations, create_beam_geom
 
-        geom = apply_penetrations(create_beam_geom(self, True), self.penetrations)
+        geom = apply_penetrations(create_beam_geom(self, True), self.geom.penetrations)
 
         return geom
 
@@ -564,12 +459,7 @@ class Beam(BackendGeom):
     def nodes(self) -> list[Node]:
         return [self.n1, self.n2]
 
-    @property
-    def angle(self) -> float:
-        return self._angle
-
-    @angle.setter
-    def angle(self, value: float):
+    def set_angle(self, value: float):
         self._init_orientation(value)
 
     @property

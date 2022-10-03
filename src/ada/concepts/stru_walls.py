@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 
 from ada import Part
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.concepts.curves import CurvePoly
 from ada.concepts.primitives import PrimBox
 from ada.concepts.transforms import Placement
@@ -20,7 +20,7 @@ class WallJustification:
     all = [CENTER, LEFT, RIGHT]
 
 
-class Wall(BackendGeom):
+class Wall(Geometry):
     TYPES_JUSL = WallJustification
 
     """

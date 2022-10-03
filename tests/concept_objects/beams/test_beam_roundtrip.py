@@ -10,8 +10,8 @@ def test_beam_to_from_ifc():
         "bm1",
         n1=[0, 0, 0],
         n2=[2, 0, 0],
-        sec="IPE220",
-        mat=Material("SteelMat", CarbonSteel("S420")),
+        section="IPE220",
+        material=Material("SteelMat", CarbonSteel("S420")),
         colour="red",
     )
 

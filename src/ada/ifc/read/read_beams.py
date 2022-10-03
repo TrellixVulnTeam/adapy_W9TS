@@ -82,7 +82,15 @@ def import_straight_beam(ifc_elem, axis, name, sec, mat, ifc_ref: IfcRef, assemb
     p2 = np.array(p1) + local_z * vlen
 
     return Beam(
-        name, p1, p2, sec=sec, mat=mat, up=local_y, guid=ifc_elem.GlobalId, ifc_ref=ifc_ref, units=assembly.units
+        name,
+        p1,
+        p2,
+        section=sec,
+        material=mat,
+        up=local_y,
+        guid=ifc_elem.GlobalId,
+        ifc_ref=ifc_ref,
+        units=assembly.units,
     )
 
 
@@ -106,7 +114,9 @@ def import_revolved_beam(ifc_elem, axis, name, sec, mat, ifc_ref: IfcRef, assemb
 
     curve = CurveRevolve(p1g, p2g, radius=r, rot_axis=rot_axis, rot_origin=rot_origin, angle=np.rad2deg(angle))
 
-    return Beam(name, curve=curve, sec=sec, mat=mat, guid=ifc_elem.GlobalId, ifc_ref=ifc_ref, units=assembly.units)
+    return Beam(
+        name, curve=curve, section=sec, material=mat, guid=ifc_elem.GlobalId, ifc_ref=ifc_ref, units=assembly.units
+    )
 
 
 def import_polyline_beam(ifc_elem, axis, name, sec, mat, ifc_ref: IfcRef, assembly: Assembly) -> Beam:

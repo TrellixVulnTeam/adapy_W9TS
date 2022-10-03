@@ -10,7 +10,7 @@ import gmsh
 import numpy as np
 
 from ada import FEM, Beam, Pipe, Plate, Shape
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.concepts.containers import Nodes
 from ada.config import Settings
 from ada.fem import Elem
@@ -89,7 +89,7 @@ class GmshSession:
 
     def add_obj(
         self,
-        obj: Union[BackendGeom, Shape, Beam, Plate, Pipe],
+        obj: Union[Geometry, Shape, Beam, Plate, Pipe],
         geom_repr=ElemType.SOLID,
         el_order=1,
         silent=True,

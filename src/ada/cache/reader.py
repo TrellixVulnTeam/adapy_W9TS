@@ -83,7 +83,7 @@ def get_beams_from_cache(part_cache, parent: Part):
         metadata = None
         if meta_str is not None:
             metadata = json.loads(meta_str)
-        return Beam(name, nid1, nid2, sec=sec, mat=mat, guid=guid, parent=parent, metadata=metadata, up=bm_up)
+        return Beam(name, nid1, nid2, section=sec, material=mat, guid=guid, parent=parent, metadata=metadata, up=bm_up)
 
     bm_zip = zip(beams_str, beams_int, beams_up)
 

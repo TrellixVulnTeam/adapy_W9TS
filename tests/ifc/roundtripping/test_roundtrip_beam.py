@@ -34,7 +34,7 @@ def test_beam_offset(ifc_roundtrip_test_dir):
         "bm1",
         n1=[0, 0, 0],
         n2=[2, 0, 0],
-        sec="IPE300",
+        section="IPE300",
         colour="red",
         up=(0, 0, 1),
         e1=(0, 0, -0.1),
@@ -44,7 +44,7 @@ def test_beam_offset(ifc_roundtrip_test_dir):
         "bm2",
         n1=[0, 0, 0],
         n2=[2, 0, 0],
-        sec="IPE300",
+        section="IPE300",
         colour="blue",
         up=(0, 0, -1),
         e1=(0, 0, -0.1),
@@ -76,10 +76,10 @@ def test_beam_directions(ifc_roundtrip_test_dir):
     sec = "HP200x10"
 
     beams = [
-        ada.Beam("bm_test2X0", n1=[0, 0, 0], n2=[5, 0, 0], angle=0, sec=sec),
-        ada.Beam("bm_test2X90", n1=[0, 0, 1], n2=[5, 0, 1], angle=90, sec=sec),
-        ada.Beam("bm_test2Y0", n1=[0, 0, 2], n2=[0, 5, 2], angle=0, sec=sec),
-        ada.Beam("bm_test2Y90", n1=[0, 0, 3], n2=[0, 5, 3], angle=90, sec=sec),
+        ada.Beam("bm_test2X0", n1=[0, 0, 0], n2=[5, 0, 0], angle=0, section=sec),
+        ada.Beam("bm_test2X90", n1=[0, 0, 1], n2=[5, 0, 1], angle=90, section=sec),
+        ada.Beam("bm_test2Y0", n1=[0, 0, 2], n2=[0, 5, 2], angle=0, section=sec),
+        ada.Beam("bm_test2Y90", n1=[0, 0, 3], n2=[0, 5, 3], angle=90, section=sec),
     ]
     a = ada.Assembly("AdaRotatedProfiles") / (ada.Part("Part") / beams)
     _ = a.to_ifc(ifc_roundtrip_test_dir / "my_angled_profiles.ifc", return_file_obj=True)

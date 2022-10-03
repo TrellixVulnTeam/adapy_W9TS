@@ -8,7 +8,7 @@ from pyquaternion import Quaternion
 
 if TYPE_CHECKING:
     from ada import Part
-    from ada.base.physical_objects import BackendGeom
+    from ada.base.physical_objects import Geometry
 
 
 @dataclass
@@ -103,7 +103,7 @@ class Placement:
 
 @dataclass
 class Instance:
-    instance_ref: Union["Part", "BackendGeom"]
+    instance_ref: Union["Part", "Geometry"]
     placements: List[Placement] = field(default_factory=list)
 
     def to_list_of_custom_json_matrices(self):

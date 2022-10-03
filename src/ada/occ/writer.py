@@ -16,14 +16,14 @@ from OCC.Core.STEPControl import (
 from OCC.Core.TCollection import TCollection_HAsciiString
 
 from ada import Assembly, Beam, Part, Pipe, Plate, Shape, Wall
-from ada.base.physical_objects import BackendGeom
+from ada.base.physical_objects import Geometry
 from ada.core.utils import Counter
 from ada.fem.shapes import ElemType
 
 # Reference: https://www.opencascade.com/doc/occt-7.4.0/overview/html/occt_user_guides__step.html#occt_step_3
 
 shp_names = Counter(1, "shp")
-valid_types = Union[BackendGeom, Beam, Plate, Wall, Part, Assembly, Shape, Pipe]
+valid_types = Union[Geometry, Beam, Plate, Wall, Part, Assembly, Shape, Pipe]
 
 
 class StepExporter:

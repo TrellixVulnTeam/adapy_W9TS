@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import pathlib
 import re
@@ -5,6 +7,7 @@ from collections import OrderedDict
 from typing import Tuple, Union
 
 import ada.core.utils
+from ada.base.root import Units
 from ada.core.exceptions import UnsupportedUnits
 
 from . import Section
@@ -18,11 +21,10 @@ class UnableToConvertSectionError(Exception):
     pass
 
 
-def profile_db_collect(sec_type: str, dim: str, units: str = "m"):
+def profile_db_collect(sec_type: str, dim: str, units: Units = Units.M):
     """Return a section object based on values in a profile db json document. Source JSON is in units 'm' meters."""
-    scale_map = {"mm": 1000, "m": 1.0}
 
-    scale_factor = scale_map.get(units, None)
+    scale_factor = Units.get_scale_factor(units, Units.M)
 
     if scale_factor is None:
         raise UnsupportedUnits(f'Units "{units}" is not supported')
@@ -62,7 +64,7 @@ def profile_db_collect(sec_type: str, dim: str, units: str = "m"):
     proper_sec_type = SectionCat.get_shape_type(sec_type)
     return Section(
         sec_name,
-        sec_type=proper_sec_type,
+        type=proper_sec_type,
         h=h,
         w_top=w_top,
         w_btn=w_btn,
@@ -75,15 +77,16 @@ def profile_db_collect(sec_type: str, dim: str, units: str = "m"):
     )
 
 
-def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Section]:
+def interpret_section_str(in_str: str, units: Units = Units.M) -> Tuple[Section, Section]:
     """
 
     :param in_str:
-    :param s: Scale factor
-    :param units: The desired units after applied scale factor
+    :param units: The output units
     :return: Two section (to account for potential beam tapering)
     """
     rdoff = ada.core.utils.roundoff
+
+    s = Units.get_scale_factor(from_unit=units.MM, to_unit=units)
 
     re_in = re.IGNORECASE | re.DOTALL
     for box in SectionCat.box:
@@ -101,7 +104,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         sec = Section(
             in_str,
             h=h[0],
-            sec_type=box,
+            type=box,
             w_btn=width[0],
             w_top=width[0],
             t_fbtn=tf[0],
@@ -114,7 +117,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
             tap = Section(
                 in_str + "_e",
                 h=h[-1],
-                sec_type=box,
+                type=box,
                 w_btn=width[-1],
                 w_top=width[-1],
                 t_fbtn=tf[-1],
@@ -142,7 +145,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         sec = Section(
             in_str,
             h=h[0],
-            sec_type=shs,
+            type=shs,
             w_btn=h[0],
             w_top=h[0],
             t_fbtn=width[0],
@@ -155,7 +158,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
             tap = Section(
                 in_str + "_e",
                 h=h[-1],
-                sec_type=shs,
+                type=shs,
                 w_btn=h[-1],
                 w_top=h[-1],
                 t_fbtn=width[-1],
@@ -183,7 +186,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         sec = Section(
             in_str,
             h=h[0],
-            sec_type=rhs,
+            type=rhs,
             w_btn=width[0],
             w_top=width[0],
             t_fbtn=tw[0],
@@ -195,7 +198,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         tap = Section(
             in_str + "_e",
             h=h[-1],
-            sec_type=rhs,
+            type=rhs,
             w_btn=width[-1],
             w_top=width[-1],
             t_fbtn=tw[-1],
@@ -221,7 +224,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         sec = Section(
             in_str,
             h=h[0],
-            sec_type=ig,
+            type=ig,
             w_btn=wt[0],
             w_top=wt[0],
             t_fbtn=tf[0],
@@ -233,7 +236,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         tap = Section(
             in_str + "_e",
             h=h[-1],
-            sec_type=ig,
+            type=ig,
             w_btn=wt[-1],
             w_top=wt[-1],
             t_fbtn=tf[-1],
@@ -259,7 +262,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         sec = Section(
             in_str,
             h=h[0],
-            sec_type=tg,
+            type=tg,
             w_btn=wt[0],
             w_top=tw[0],
             t_fbtn=tf[0],
@@ -271,7 +274,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         tap = Section(
             in_str + "_e",
             h=h[-1],
-            sec_type=tg,
+            type=tg,
             w_btn=wt[-1],
             w_top=tw[-1],
             t_fbtn=tf[-1],
@@ -306,7 +309,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         wt = [rdoff(float(x) * s) for x in res.group(3).split("/")]
         sec = Section(
             in_str,
-            sec_type=tub,
+            type=tub,
             r=r[0],
             wt=wt[0],
             metadata=dict(cad_str=in_str),
@@ -314,7 +317,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         )
         tap = Section(
             in_str + "_e",
-            sec_type=tub,
+            type=tub,
             r=r[-1],
             wt=wt[-1],
             metadata=dict(cad_str=in_str),
@@ -335,7 +338,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
             continue
         sec = Section(
             in_str,
-            sec_type=circ,
+            type=circ,
             r=rdoff(float(res.group(1)) * s),
             metadata=dict(cad_str=in_str),
             units=units,
@@ -358,7 +361,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
 
         sec = Section(
             in_str,
-            sec_type=flat,
+            type=flat,
             h=h[0],
             w_top=width[0],
             w_btn=width[0],
@@ -368,7 +371,7 @@ def interpret_section_str(in_str: str, s=0.001, units="m") -> Tuple[Section, Sec
         if "/" in in_str:
             tap = Section(
                 in_str + "_e",
-                sec_type=flat,
+                type=flat,
                 h=h[-1],
                 w_top=width[-1],
                 w_btn=width[-1],
